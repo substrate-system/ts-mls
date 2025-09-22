@@ -8,7 +8,7 @@ This project aims to be a full implementation of [RFC 9420](https://datatracker.
 
 ## Installation
 
-> **Node.js Requirement**: Node.js 19+ is required when using this library in Node.js environments due to the Web Crypto API dependency.
+> **Node.js Requirement**: Node.js 20+ is required when using this library in Node.js environments.
 
 ```bash
 # npm
