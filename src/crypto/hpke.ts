@@ -1,12 +1,12 @@
-import { AeadAlgorithm } from "./aead.js"
-import { KdfAlgorithm } from "./kdf.js"
-import { KemAlgorithm } from "./kem.js"
-import { encodeVarLenData } from "../codec/variableLength"
-import { concatUint8Arrays } from "../util/byteArray"
+import type { AeadAlgorithm } from './aead.js'
+import type { KdfAlgorithm } from './kdf.js'
+import type { KemAlgorithm } from './kem.js'
+import { encodeVarLenData } from '../codec/variableLength'
+import { concatUint8Arrays } from '../util/byteArray'
 
-export type PublicKey = CryptoKey & { type: "public" }
-export type SecretKey = CryptoKey & { type: "secret" }
-export type PrivateKey = CryptoKey & { type: "private" }
+export type PublicKey = CryptoKey & { type: 'public' }
+export type SecretKey = CryptoKey & { type: 'secret' }
+export type PrivateKey = CryptoKey & { type: 'private' }
 
 export interface HpkeAlgorithm {
   kem: KemAlgorithm
@@ -14,35 +14,35 @@ export interface HpkeAlgorithm {
   aead: AeadAlgorithm
 }
 
-export function encryptWithLabel(
-  publicKey: PublicKey,
-  label: string,
-  context: Uint8Array,
-  plaintext: Uint8Array,
-  hpke: Hpke,
+export function encryptWithLabel (
+    publicKey: PublicKey,
+    label: string,
+    context: Uint8Array,
+    plaintext: Uint8Array,
+    hpke: Hpke,
 ): Promise<{ ct: Uint8Array; enc: Uint8Array }> {
-  return hpke.seal(
-    publicKey,
-    plaintext,
-    concatUint8Arrays(encodeVarLenData(new TextEncoder().encode(`MLS 1.0 ${label}`)), encodeVarLenData(context)),
-    new Uint8Array(),
-  )
+    return hpke.seal(
+        publicKey,
+        plaintext,
+        concatUint8Arrays(encodeVarLenData(new TextEncoder().encode(`MLS 1.0 ${label}`)), encodeVarLenData(context)),
+        new Uint8Array(),
+    )
 }
 
-export function decryptWithLabel(
-  privateKey: PrivateKey,
-  label: string,
-  context: Uint8Array,
-  kemOutput: Uint8Array,
-  ciphertext: Uint8Array,
-  hpke: Hpke,
+export function decryptWithLabel (
+    privateKey: PrivateKey,
+    label: string,
+    context: Uint8Array,
+    kemOutput: Uint8Array,
+    ciphertext: Uint8Array,
+    hpke: Hpke,
 ): Promise<Uint8Array> {
-  return hpke.open(
-    privateKey,
-    kemOutput,
-    ciphertext,
-    concatUint8Arrays(encodeVarLenData(new TextEncoder().encode(`MLS 1.0 ${label}`)), encodeVarLenData(context)),
-  )
+    return hpke.open(
+        privateKey,
+        kemOutput,
+        ciphertext,
+        concatUint8Arrays(encodeVarLenData(new TextEncoder().encode(`MLS 1.0 ${label}`)), encodeVarLenData(context)),
+    )
 }
 
 export interface Hpke {

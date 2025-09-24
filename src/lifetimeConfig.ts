@@ -4,6 +4,6 @@ export interface LifetimeConfig {
 }
 
 export const defaultLifetimeConfig: LifetimeConfig = {
-  maximumTotalLifetime: 2628000n, // 1 month
-  validateLifetimeOnReceive: false,
+    maximumTotalLifetime: 2628000n, // 1 month
+    validateLifetimeOnReceive: false,
 }

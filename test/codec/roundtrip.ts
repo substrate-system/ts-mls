@@ -1,12 +1,12 @@
-import { Decoder } from "../../src/codec/tlsDecoder"
-import { Encoder } from "../../src/codec/tlsEncoder"
+import type { Decoder } from '../../src/codec/tlsDecoder'
+import type { Encoder } from '../../src/codec/tlsEncoder'
 
-export function createRoundtripTest<T>(enc: Encoder<T>, dec: Decoder<T>): (t: T) => void {
-  return (t) => {
-    const encoded = enc(t)
+export function createRoundtripTest<T> (enc: Encoder<T>, dec: Decoder<T>): (t: T) => void {
+    return (t) => {
+        const encoded = enc(t)
 
-    const decoded = dec(encoded, 0)?.[0] as T
+        const decoded = dec(encoded, 0)?.[0] as T
 
-    expect(decoded).toStrictEqual(t)
-  }
+        expect(decoded).toStrictEqual(t)
+    }
 }

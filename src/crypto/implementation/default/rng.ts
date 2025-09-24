@@ -1,7 +1,7 @@
-import { Rng } from "../../rng"
+import type { Rng } from '../../rng'
 
 export const defaultRng: Rng = {
-  randomBytes(n) {
-    return crypto.getRandomValues(new Uint8Array(n))
-  },
+    randomBytes (n) {
+        return crypto.getRandomValues(new Uint8Array(n))
+    },
 }

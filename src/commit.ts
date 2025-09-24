@@ -1,9 +1,13 @@
-import { decodeOptional, encodeOptional } from "./codec/optional.js"
-import { Decoder, mapDecoders } from "./codec/tlsDecoder.js"
-import { contramapEncoders, Encoder } from "./codec/tlsEncoder.js"
-import { decodeVarLenType, encodeVarLenType } from "./codec/variableLength.js"
-import { decodeProposalOrRef, encodeProposalOrRef, ProposalOrRef } from "./proposalOrRefType.js"
-import { decodeUpdatePath, encodeUpdatePath, UpdatePath } from "./updatePath.js"
+import { decodeOptional, encodeOptional } from './codec/optional.js'
+import type { Decoder } from './codec/tlsDecoder.js'
+import { mapDecoders } from './codec/tlsDecoder.js'
+import type { Encoder } from './codec/tlsEncoder.js'
+import { contramapEncoders } from './codec/tlsEncoder.js'
+import { decodeVarLenType, encodeVarLenType } from './codec/variableLength.js'
+import type { ProposalOrRef } from './proposalOrRefType.js'
+import { decodeProposalOrRef, encodeProposalOrRef } from './proposalOrRefType.js'
+import type { UpdatePath } from './updatePath.js'
+import { decodeUpdatePath, encodeUpdatePath } from './updatePath.js'
 
 export interface Commit {
   proposals: ProposalOrRef[]
@@ -11,11 +15,11 @@ export interface Commit {
 }
 
 export const encodeCommit: Encoder<Commit> = contramapEncoders(
-  [encodeVarLenType(encodeProposalOrRef), encodeOptional(encodeUpdatePath)],
-  (commit) => [commit.proposals, commit.path] as const,
+    [encodeVarLenType(encodeProposalOrRef), encodeOptional(encodeUpdatePath)],
+    (commit) => [commit.proposals, commit.path] as const,
 )
 
 export const decodeCommit: Decoder<Commit> = mapDecoders(
-  [decodeVarLenType(decodeProposalOrRef), decodeOptional(decodeUpdatePath)],
-  (proposals, path) => ({ proposals, path }),
+    [decodeVarLenType(decodeProposalOrRef), decodeOptional(decodeUpdatePath)],
+    (proposals, path) => ({ proposals, path }),
 )

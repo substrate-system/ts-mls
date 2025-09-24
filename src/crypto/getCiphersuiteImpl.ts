@@ -1,10 +1,10 @@
-import { Ciphersuite, CiphersuiteImpl } from "./ciphersuite.js"
-import { CryptoProvider } from "./provider.js"
-import { defaultCryptoProvider } from "./implementation/default/provider.js"
+import type { Ciphersuite, CiphersuiteImpl } from './ciphersuite.js'
+import type { CryptoProvider } from './provider.js'
+import { defaultCryptoProvider } from './implementation/default/provider.js'
 
-export async function getCiphersuiteImpl(
-  cs: Ciphersuite,
-  provider: CryptoProvider = defaultCryptoProvider,
+export async function getCiphersuiteImpl (
+    cs: Ciphersuite,
+    provider: CryptoProvider = defaultCryptoProvider,
 ): Promise<CiphersuiteImpl> {
-  return provider.getCiphersuiteImpl(cs)
+    return provider.getCiphersuiteImpl(cs)
 }

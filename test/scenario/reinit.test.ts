@@ -1,127 +1,128 @@
-import { createGroup, joinGroup, makePskIndex } from "../../src/clientState"
-import { createCommit } from "../../src/createCommit"
-import { processPrivateMessage } from "../../src/processMessages"
-import { emptyPskIndex } from "../../src/pskIndex"
-import { joinGroupFromReinit, reinitCreateNewGroup, reinitGroup } from "../../src/resumption"
-import { Credential } from "../../src/credential"
-import { CiphersuiteName, ciphersuites, getCiphersuiteFromName } from "../../src/crypto/ciphersuite"
-import { getCiphersuiteImpl } from "../../src/crypto/getCiphersuiteImpl"
-import { generateKeyPackage } from "../../src/keyPackage"
-import { ProposalAdd } from "../../src/proposal"
-import { checkHpkeKeysMatch } from "../crypto/keyMatch"
-import { getRandomElement, testEveryoneCanMessageEveryone } from "./common.js"
-import { defaultLifetime } from "../../src/lifetime"
-import { defaultCapabilities } from "../../src/defaultCapabilities"
-import { UsageError } from "../../src/mlsError"
+import { createGroup, joinGroup, makePskIndex } from '../../src/clientState'
+import { createCommit } from '../../src/createCommit'
+import { processPrivateMessage } from '../../src/processMessages'
+import { emptyPskIndex } from '../../src/pskIndex'
+import { joinGroupFromReinit, reinitCreateNewGroup, reinitGroup } from '../../src/resumption'
+import type { Credential } from '../../src/credential'
+import type { CiphersuiteName } from '../../src/crypto/ciphersuite'
+import { ciphersuites, getCiphersuiteFromName } from '../../src/crypto/ciphersuite'
+import { getCiphersuiteImpl } from '../../src/crypto/getCiphersuiteImpl'
+import { generateKeyPackage } from '../../src/keyPackage'
+import type { ProposalAdd } from '../../src/proposal'
+import { checkHpkeKeysMatch } from '../crypto/keyMatch'
+import { getRandomElement, testEveryoneCanMessageEveryone } from './common.js'
+import { defaultLifetime } from '../../src/lifetime'
+import { defaultCapabilities } from '../../src/defaultCapabilities'
+import { UsageError } from '../../src/mlsError'
 
-test.concurrent.each(Object.keys(ciphersuites))(`Reinit %s`, async (cs) => {
-  await reinit(cs as CiphersuiteName)
+test.concurrent.each(Object.keys(ciphersuites))('Reinit %s', async (cs) => {
+    await reinit(cs as CiphersuiteName)
 })
 
-async function reinit(cipherSuite: CiphersuiteName) {
-  const impl = await getCiphersuiteImpl(getCiphersuiteFromName(cipherSuite))
+async function reinit (cipherSuite: CiphersuiteName) {
+    const impl = await getCiphersuiteImpl(getCiphersuiteFromName(cipherSuite))
 
-  const aliceCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("alice") }
-  const alice = await generateKeyPackage(aliceCredential, defaultCapabilities(), defaultLifetime, [], impl)
+    const aliceCredential: Credential = { credentialType: 'basic', identity: new TextEncoder().encode('alice') }
+    const alice = await generateKeyPackage(aliceCredential, defaultCapabilities(), defaultLifetime, [], impl)
 
-  const groupId = new TextEncoder().encode("group1")
+    const groupId = new TextEncoder().encode('group1')
 
-  let aliceGroup = await createGroup(groupId, alice.publicPackage, alice.privatePackage, [], impl)
+    let aliceGroup = await createGroup(groupId, alice.publicPackage, alice.privatePackage, [], impl)
 
-  const bobCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("bob") }
-  const bob = await generateKeyPackage(bobCredential, defaultCapabilities(), defaultLifetime, [], impl)
+    const bobCredential: Credential = { credentialType: 'basic', identity: new TextEncoder().encode('bob') }
+    const bob = await generateKeyPackage(bobCredential, defaultCapabilities(), defaultLifetime, [], impl)
 
-  const addBobProposal: ProposalAdd = {
-    proposalType: "add",
-    add: {
-      keyPackage: bob.publicPackage,
-    },
-  }
+    const addBobProposal: ProposalAdd = {
+        proposalType: 'add',
+        add: {
+            keyPackage: bob.publicPackage,
+        },
+    }
 
-  const commitResult = await createCommit(
-    {
-      state: aliceGroup,
-      cipherSuite: impl,
-    },
-    {
-      extraProposals: [addBobProposal],
-    },
-  )
+    const commitResult = await createCommit(
+        {
+            state: aliceGroup,
+            cipherSuite: impl,
+        },
+        {
+            extraProposals: [addBobProposal],
+        },
+    )
 
-  aliceGroup = commitResult.newState
+    aliceGroup = commitResult.newState
 
-  let bobGroup = await joinGroup(
+    let bobGroup = await joinGroup(
     commitResult.welcome!,
     bob.publicPackage,
     bob.privatePackage,
     emptyPskIndex,
     impl,
     aliceGroup.ratchetTree,
-  )
+    )
 
-  const newCiphersuite = getRandomElement(Object.keys(ciphersuites)) as CiphersuiteName
+    const newCiphersuite = getRandomElement(Object.keys(ciphersuites)) as CiphersuiteName
 
-  const newGroupId = new TextEncoder().encode("new-group1")
+    const newGroupId = new TextEncoder().encode('new-group1')
 
-  const reinitCommitResult = await reinitGroup(aliceGroup, newGroupId, "mls10", newCiphersuite, [], impl)
+    const reinitCommitResult = await reinitGroup(aliceGroup, newGroupId, 'mls10', newCiphersuite, [], impl)
 
-  aliceGroup = reinitCommitResult.newState
+    aliceGroup = reinitCommitResult.newState
 
-  if (reinitCommitResult.commit.wireformat !== "mls_private_message") throw new Error("Expected private message")
+    if (reinitCommitResult.commit.wireformat !== 'mls_private_message') throw new Error('Expected private message')
 
-  const processReinitResult = await processPrivateMessage(
-    bobGroup,
-    reinitCommitResult.commit.privateMessage,
-    makePskIndex(bobGroup, {}),
-    impl,
-  )
+    const processReinitResult = await processPrivateMessage(
+        bobGroup,
+        reinitCommitResult.commit.privateMessage,
+        makePskIndex(bobGroup, {}),
+        impl,
+    )
 
-  bobGroup = processReinitResult.newState
+    bobGroup = processReinitResult.newState
 
-  expect(bobGroup.groupActiveState.kind).toBe("suspendedPendingReinit")
-  expect(aliceGroup.groupActiveState.kind).toBe("suspendedPendingReinit")
+    expect(bobGroup.groupActiveState.kind).toBe('suspendedPendingReinit')
+    expect(aliceGroup.groupActiveState.kind).toBe('suspendedPendingReinit')
 
-  //creating a message will fail now
-  await expect(
-    createCommit({
-      state: aliceGroup,
-      cipherSuite: impl,
-    }),
-  ).rejects.toThrow(UsageError)
+    // creating a message will fail now
+    await expect(
+        createCommit({
+            state: aliceGroup,
+            cipherSuite: impl,
+        }),
+    ).rejects.toThrow(UsageError)
 
-  const newImpl = await getCiphersuiteImpl(getCiphersuiteFromName(newCiphersuite))
+    const newImpl = await getCiphersuiteImpl(getCiphersuiteFromName(newCiphersuite))
 
-  const bobNewKeyPackage = await generateKeyPackage(bobCredential, defaultCapabilities(), defaultLifetime, [], newImpl)
+    const bobNewKeyPackage = await generateKeyPackage(bobCredential, defaultCapabilities(), defaultLifetime, [], newImpl)
 
-  const aliceNewKeyPackage = await generateKeyPackage(
-    aliceCredential,
-    defaultCapabilities(),
-    defaultLifetime,
-    [],
-    newImpl,
-  )
+    const aliceNewKeyPackage = await generateKeyPackage(
+        aliceCredential,
+        defaultCapabilities(),
+        defaultLifetime,
+        [],
+        newImpl,
+    )
 
-  const resumeGroupResult = await reinitCreateNewGroup(
-    aliceGroup,
-    aliceNewKeyPackage.publicPackage,
-    aliceNewKeyPackage.privatePackage,
-    [bobNewKeyPackage.publicPackage],
-    newGroupId,
-    newCiphersuite,
-    [],
-  )
+    const resumeGroupResult = await reinitCreateNewGroup(
+        aliceGroup,
+        aliceNewKeyPackage.publicPackage,
+        aliceNewKeyPackage.privatePackage,
+        [bobNewKeyPackage.publicPackage],
+        newGroupId,
+        newCiphersuite,
+        [],
+    )
 
-  aliceGroup = resumeGroupResult.newState
+    aliceGroup = resumeGroupResult.newState
 
-  bobGroup = await joinGroupFromReinit(
-    bobGroup,
+    bobGroup = await joinGroupFromReinit(
+        bobGroup,
     resumeGroupResult.welcome!,
     bobNewKeyPackage.publicPackage,
     bobNewKeyPackage.privatePackage,
     aliceGroup.ratchetTree,
-  )
+    )
 
-  await testEveryoneCanMessageEveryone([aliceGroup, bobGroup], newImpl)
-  await checkHpkeKeysMatch(aliceGroup, newImpl)
-  await checkHpkeKeysMatch(bobGroup, newImpl)
+    await testEveryoneCanMessageEveryone([aliceGroup, bobGroup], newImpl)
+    await checkHpkeKeysMatch(aliceGroup, newImpl)
+    await checkHpkeKeysMatch(bobGroup, newImpl)
 }

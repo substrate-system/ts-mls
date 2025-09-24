@@ -1,60 +1,61 @@
-import { ClientState, makePskIndex } from "../../src/clientState"
-import { createApplicationMessage } from "../../src/createMessage"
-import { processPrivateMessage } from "../../src/processMessages"
-import { CiphersuiteImpl } from "../../src/crypto/ciphersuite"
-import { UsageError } from "../../src/mlsError"
+import type { ClientState } from '../../src/clientState'
+import { makePskIndex } from '../../src/clientState'
+import { createApplicationMessage } from '../../src/createMessage'
+import { processPrivateMessage } from '../../src/processMessages'
+import type { CiphersuiteImpl } from '../../src/crypto/ciphersuite'
+import { UsageError } from '../../src/mlsError'
 
-export async function testEveryoneCanMessageEveryone(
-  clients: ClientState[],
-  impl: CiphersuiteImpl,
+export async function testEveryoneCanMessageEveryone (
+    clients: ClientState[],
+    impl: CiphersuiteImpl,
 ): Promise<{ updatedGroups: ClientState[] }> {
-  const encoder = new TextEncoder()
-  const updatedGroups = [...clients]
+    const encoder = new TextEncoder()
+    const updatedGroups = [...clients]
 
-  for (const [senderIndex, senderState] of updatedGroups.entries()) {
-    const messageText = `Hello from member ${senderIndex}`
-    const encodedMessage = encoder.encode(messageText)
+    for (const [senderIndex, senderState] of updatedGroups.entries()) {
+        const messageText = `Hello from member ${senderIndex}`
+        const encodedMessage = encoder.encode(messageText)
 
-    const { privateMessage, newState: newSenderState } = await createApplicationMessage(
-      senderState,
-      encodedMessage,
-      impl,
-    )
-    updatedGroups[senderIndex] = newSenderState
+        const { privateMessage, newState: newSenderState } = await createApplicationMessage(
+            senderState,
+            encodedMessage,
+            impl,
+        )
+        updatedGroups[senderIndex] = newSenderState
 
-    for (const [receiverIndex, receiverGroup] of updatedGroups.entries()) {
-      if (receiverIndex === senderIndex) continue
+        for (const [receiverIndex, receiverGroup] of updatedGroups.entries()) {
+            if (receiverIndex === senderIndex) continue
 
-      const result = await processPrivateMessage(receiverGroup, privateMessage, makePskIndex(receiverGroup, {}), impl)
+            const result = await processPrivateMessage(receiverGroup, privateMessage, makePskIndex(receiverGroup, {}), impl)
 
-      if (result.kind === "newState") {
-        throw new Error(`Expected application message for member ${receiverIndex} from ${senderIndex}`)
-      }
+            if (result.kind === 'newState') {
+                throw new Error(`Expected application message for member ${receiverIndex} from ${senderIndex}`)
+            }
 
-      expect(result.message).toStrictEqual(encodedMessage)
+            expect(result.message).toStrictEqual(encodedMessage)
 
-      updatedGroups[receiverIndex] = result.newState
+            updatedGroups[receiverIndex] = result.newState
+        }
     }
-  }
 
-  return { updatedGroups }
+    return { updatedGroups }
 }
 
-export async function cannotMessageAnymore(state: ClientState, impl: CiphersuiteImpl): Promise<void> {
-  await expect(createApplicationMessage(state, new TextEncoder().encode("hello"), impl)).rejects.toThrow(UsageError)
+export async function cannotMessageAnymore (state: ClientState, impl: CiphersuiteImpl): Promise<void> {
+    await expect(createApplicationMessage(state, new TextEncoder().encode('hello'), impl)).rejects.toThrow(UsageError)
 }
 
-export function shuffledIndices<T>(arr: T[]): number[] {
-  const indices = arr.map((_, i) => i)
+export function shuffledIndices<T> (arr: T[]): number[] {
+    const indices = arr.map((_, i) => i)
 
-  for (let i = indices.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
+    for (let i = indices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
     ;[indices[i], indices[j]!] = [indices[j]!, indices[i]!]
-  }
+    }
 
-  return indices
+    return indices
 }
-export function getRandomElement<T>(arr: T[]): T {
-  const index = Math.floor(Math.random() * arr.length)
-  return arr[index]!
+export function getRandomElement<T> (arr: T[]): T {
+    const index = Math.floor(Math.random() * arr.length)
+    return arr[index]!
 }

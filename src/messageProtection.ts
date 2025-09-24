@@ -1,84 +1,90 @@
-import { AuthenticatedContent, makeProposalRef } from "./authenticatedContent.js"
-import { CiphersuiteImpl } from "./crypto/ciphersuite.js"
+import type { AuthenticatedContent } from './authenticatedContent.js'
+import { makeProposalRef } from './authenticatedContent.js'
+import type { CiphersuiteImpl } from './crypto/ciphersuite.js'
+import type { FramedContentTBSApplicationOrProposal } from './framedContent.js'
 import {
-  FramedContentTBSApplicationOrProposal,
-  signFramedContentApplicationOrProposal,
-  verifyFramedContentSignature,
-} from "./framedContent.js"
-import { GroupContext } from "./groupContext.js"
-import { Proposal } from "./proposal.js"
+    signFramedContentApplicationOrProposal,
+    verifyFramedContentSignature,
+} from './framedContent.js'
+import type { GroupContext } from './groupContext.js'
+import type { Proposal } from './proposal.js'
+import type {
+    PrivateContentAAD,
+    PrivateMessage,
+    PrivateMessageContent
+} from './privateMessage.js'
 import {
-  decodePrivateMessageContent,
-  decryptSenderData,
-  encodePrivateContentAAD,
-  encodePrivateMessageContent,
-  encryptSenderData,
-  PrivateContentAAD,
-  PrivateMessage,
-  PrivateMessageContent,
-  toAuthenticatedContent,
-} from "./privateMessage.js"
-import { consumeRatchet, ratchetToGeneration, SecretTree } from "./secretTree.js"
-import { getSignaturePublicKeyFromLeafIndex, RatchetTree } from "./ratchetTree.js"
-import { SenderData, SenderDataAAD } from "./sender.js"
-import { leafToNodeIndex, toLeafIndex } from "./treemath.js"
-import { KeyRetentionConfig } from "./keyRetentionConfig.js"
-import { CryptoVerificationError, CodecError, ValidationError, MlsError, InternalError } from "./mlsError.js"
-import { PaddingConfig } from "./paddingConfig.js"
+    decodePrivateMessageContent,
+    decryptSenderData,
+    encodePrivateContentAAD,
+    encodePrivateMessageContent,
+    encryptSenderData,
+    toAuthenticatedContent,
+} from './privateMessage.js'
+import type { SecretTree } from './secretTree.js'
+import { consumeRatchet, ratchetToGeneration } from './secretTree.js'
+import type { RatchetTree } from './ratchetTree.js'
+import { getSignaturePublicKeyFromLeafIndex } from './ratchetTree.js'
+import type { SenderData, SenderDataAAD } from './sender.js'
+import { leafToNodeIndex, toLeafIndex } from './treemath.js'
+import type { KeyRetentionConfig } from './keyRetentionConfig.js'
+import type { MlsError } from './mlsError.js'
+import { CryptoVerificationError, CodecError, ValidationError, InternalError } from './mlsError.js'
+import type { PaddingConfig } from './paddingConfig.js'
 
 export interface ProtectApplicationDataResult {
   privateMessage: PrivateMessage
   newSecretTree: SecretTree
 }
 
-export async function protectApplicationData(
-  signKey: Uint8Array,
-  senderDataSecret: Uint8Array,
-  applicationData: Uint8Array,
-  authenticatedData: Uint8Array,
-  groupContext: GroupContext,
-  secretTree: SecretTree,
-  leafIndex: number,
-  paddingConfig: PaddingConfig,
-  cs: CiphersuiteImpl,
+export async function protectApplicationData (
+    signKey: Uint8Array,
+    senderDataSecret: Uint8Array,
+    applicationData: Uint8Array,
+    authenticatedData: Uint8Array,
+    groupContext: GroupContext,
+    secretTree: SecretTree,
+    leafIndex: number,
+    paddingConfig: PaddingConfig,
+    cs: CiphersuiteImpl,
 ): Promise<ProtectApplicationDataResult> {
-  const tbs: FramedContentTBSApplicationOrProposal = {
-    protocolVersion: groupContext.version,
-    wireformat: "mls_private_message",
-    content: {
-      contentType: "application",
-      applicationData,
-      groupId: groupContext.groupId,
-      epoch: groupContext.epoch,
-      sender: {
-        senderType: "member",
-        leafIndex: leafIndex,
-      },
-      authenticatedData,
-    },
-    senderType: "member",
-    context: groupContext,
-  }
+    const tbs: FramedContentTBSApplicationOrProposal = {
+        protocolVersion: groupContext.version,
+        wireformat: 'mls_private_message',
+        content: {
+            contentType: 'application',
+            applicationData,
+            groupId: groupContext.groupId,
+            epoch: groupContext.epoch,
+            sender: {
+                senderType: 'member',
+                leafIndex,
+            },
+            authenticatedData,
+        },
+        senderType: 'member',
+        context: groupContext,
+    }
 
-  const auth = await signFramedContentApplicationOrProposal(signKey, tbs, cs)
+    const auth = await signFramedContentApplicationOrProposal(signKey, tbs, cs)
 
-  const content = {
-    ...tbs.content,
-    auth,
-  }
+    const content = {
+        ...tbs.content,
+        auth,
+    }
 
-  const result = await protect(
-    senderDataSecret,
-    authenticatedData,
-    groupContext,
-    secretTree,
-    content,
-    leafIndex,
-    paddingConfig,
-    cs,
-  )
+    const result = await protect(
+        senderDataSecret,
+        authenticatedData,
+        groupContext,
+        secretTree,
+        content,
+        leafIndex,
+        paddingConfig,
+        cs,
+    )
 
-  return { newSecretTree: result.tree, privateMessage: result.privateMessage }
+    return { newSecretTree: result.tree, privateMessage: result.privateMessage }
 }
 
 export interface ProtectProposalResult {
@@ -87,59 +93,59 @@ export interface ProtectProposalResult {
   proposalRef: Uint8Array
 }
 
-export async function protectProposal(
-  signKey: Uint8Array,
-  senderDataSecret: Uint8Array,
-  p: Proposal,
-  authenticatedData: Uint8Array,
-  groupContext: GroupContext,
-  secretTree: SecretTree,
-  leafIndex: number,
-  paddingConfig: PaddingConfig,
-  cs: CiphersuiteImpl,
+export async function protectProposal (
+    signKey: Uint8Array,
+    senderDataSecret: Uint8Array,
+    p: Proposal,
+    authenticatedData: Uint8Array,
+    groupContext: GroupContext,
+    secretTree: SecretTree,
+    leafIndex: number,
+    paddingConfig: PaddingConfig,
+    cs: CiphersuiteImpl,
 ): Promise<ProtectProposalResult> {
-  const tbs = {
-    protocolVersion: groupContext.version,
-    wireformat: "mls_private_message" as const,
-    content: {
-      contentType: "proposal" as const,
-      proposal: p,
-      groupId: groupContext.groupId,
-      epoch: groupContext.epoch,
-      sender: {
-        senderType: "member" as const,
+    const tbs = {
+        protocolVersion: groupContext.version,
+        wireformat: 'mls_private_message' as const,
+        content: {
+            contentType: 'proposal' as const,
+            proposal: p,
+            groupId: groupContext.groupId,
+            epoch: groupContext.epoch,
+            sender: {
+                senderType: 'member' as const,
+                leafIndex,
+            },
+            authenticatedData,
+        },
+        senderType: 'member' as const,
+        context: groupContext,
+    }
+
+    const auth = await signFramedContentApplicationOrProposal(signKey, tbs, cs)
+    const content = { ...tbs.content, auth }
+
+    const privateMessage = await protect(
+        senderDataSecret,
+        authenticatedData,
+        groupContext,
+        secretTree,
+        content,
         leafIndex,
-      },
-      authenticatedData,
-    },
-    senderType: "member" as const,
-    context: groupContext,
-  }
+        paddingConfig,
+        cs,
+    )
 
-  const auth = await signFramedContentApplicationOrProposal(signKey, tbs, cs)
-  const content = { ...tbs.content, auth }
+    const newSecretTree = privateMessage.tree
 
-  const privateMessage = await protect(
-    senderDataSecret,
-    authenticatedData,
-    groupContext,
-    secretTree,
-    content,
-    leafIndex,
-    paddingConfig,
-    cs,
-  )
+    const authenticatedContent = {
+        wireformat: 'mls_private_message' as const,
+        content,
+        auth,
+    }
+    const proposalRef = await makeProposalRef(authenticatedContent, cs.hash)
 
-  const newSecretTree = privateMessage.tree
-
-  const authenticatedContent = {
-    wireformat: "mls_private_message" as const,
-    content,
-    auth,
-  }
-  const proposalRef = await makeProposalRef(authenticatedContent, cs.hash)
-
-  return { privateMessage: privateMessage.privateMessage, newSecretTree, proposalRef }
+    return { privateMessage: privateMessage.privateMessage, newSecretTree, proposalRef }
 }
 
 export interface ProtectResult {
@@ -147,65 +153,65 @@ export interface ProtectResult {
   tree: SecretTree
 }
 
-export async function protect(
-  senderDataSecret: Uint8Array,
-  authenticatedData: Uint8Array,
-  groupContext: GroupContext,
-  secretTree: SecretTree,
-  content: PrivateMessageContent,
-  leafIndex: number,
-  config: PaddingConfig,
-  cs: CiphersuiteImpl,
+export async function protect (
+    senderDataSecret: Uint8Array,
+    authenticatedData: Uint8Array,
+    groupContext: GroupContext,
+    secretTree: SecretTree,
+    content: PrivateMessageContent,
+    leafIndex: number,
+    config: PaddingConfig,
+    cs: CiphersuiteImpl,
 ): Promise<{ privateMessage: PrivateMessage; tree: SecretTree }> {
-  const node = secretTree[leafToNodeIndex(toLeafIndex(leafIndex))]
-  if (node === undefined) throw new InternalError("Bad node index for secret tree")
+    const node = secretTree[leafToNodeIndex(toLeafIndex(leafIndex))]
+    if (node === undefined) throw new InternalError('Bad node index for secret tree')
 
-  const { newTree, generation, reuseGuard, nonce, key } = await consumeRatchet(
-    secretTree,
-    leafToNodeIndex(toLeafIndex(leafIndex)),
-    content.contentType,
-    cs,
-  )
+    const { newTree, generation, reuseGuard, nonce, key } = await consumeRatchet(
+        secretTree,
+        leafToNodeIndex(toLeafIndex(leafIndex)),
+        content.contentType,
+        cs,
+    )
 
-  const aad: PrivateContentAAD = {
-    groupId: groupContext.groupId,
-    epoch: groupContext.epoch,
-    contentType: content.contentType,
-    authenticatedData: authenticatedData,
-  }
+    const aad: PrivateContentAAD = {
+        groupId: groupContext.groupId,
+        epoch: groupContext.epoch,
+        contentType: content.contentType,
+        authenticatedData,
+    }
 
-  const ciphertext = await cs.hpke.encryptAead(
-    key,
-    nonce,
-    encodePrivateContentAAD(aad),
-    encodePrivateMessageContent(config)(content),
-  )
+    const ciphertext = await cs.hpke.encryptAead(
+        key,
+        nonce,
+        encodePrivateContentAAD(aad),
+        encodePrivateMessageContent(config)(content),
+    )
 
-  const senderData: SenderData = {
-    leafIndex,
-    generation,
-    reuseGuard,
-  }
+    const senderData: SenderData = {
+        leafIndex,
+        generation,
+        reuseGuard,
+    }
 
-  const senderAad: SenderDataAAD = {
-    groupId: groupContext.groupId,
-    epoch: groupContext.epoch,
-    contentType: content.contentType,
-  }
+    const senderAad: SenderDataAAD = {
+        groupId: groupContext.groupId,
+        epoch: groupContext.epoch,
+        contentType: content.contentType,
+    }
 
-  const encryptedSenderData = await encryptSenderData(senderDataSecret, senderData, senderAad, ciphertext, cs)
+    const encryptedSenderData = await encryptSenderData(senderDataSecret, senderData, senderAad, ciphertext, cs)
 
-  return {
-    privateMessage: {
-      groupId: groupContext.groupId,
-      epoch: groupContext.epoch,
-      encryptedSenderData,
-      contentType: content.contentType,
-      authenticatedData,
-      ciphertext,
-    },
-    tree: newTree,
-  }
+    return {
+        privateMessage: {
+            groupId: groupContext.groupId,
+            epoch: groupContext.epoch,
+            encryptedSenderData,
+            contentType: content.contentType,
+            authenticatedData,
+            ciphertext,
+        },
+        tree: newTree,
+    }
 }
 
 export interface UnprotectResult {
@@ -213,59 +219,58 @@ export interface UnprotectResult {
   tree: SecretTree
 }
 
-export async function unprotectPrivateMessage(
-  senderDataSecret: Uint8Array,
-  msg: PrivateMessage,
-  secretTree: SecretTree,
-  ratchetTree: RatchetTree,
-  groupContext: GroupContext,
-  config: KeyRetentionConfig,
-  cs: CiphersuiteImpl,
-  overrideSignatureKey?: Uint8Array,
+export async function unprotectPrivateMessage (
+    senderDataSecret: Uint8Array,
+    msg: PrivateMessage,
+    secretTree: SecretTree,
+    ratchetTree: RatchetTree,
+    groupContext: GroupContext,
+    config: KeyRetentionConfig,
+    cs: CiphersuiteImpl,
+    overrideSignatureKey?: Uint8Array,
 ): Promise<UnprotectResult> {
-  const senderData = await decryptSenderData(msg, senderDataSecret, cs)
+    const senderData = await decryptSenderData(msg, senderDataSecret, cs)
 
-  if (senderData === undefined) throw new CodecError("Could not decode senderdata")
+    if (senderData === undefined) throw new CodecError('Could not decode senderdata')
 
-  validateSenderData(senderData, ratchetTree)
+    validateSenderData(senderData, ratchetTree)
 
-  const { key, nonce, newTree } = await ratchetToGeneration(secretTree, senderData, msg.contentType, config, cs)
+    const { key, nonce, newTree } = await ratchetToGeneration(secretTree, senderData, msg.contentType, config, cs)
 
-  const aad: PrivateContentAAD = {
-    groupId: msg.groupId,
-    epoch: msg.epoch,
-    contentType: msg.contentType,
-    authenticatedData: msg.authenticatedData,
-  }
+    const aad: PrivateContentAAD = {
+        groupId: msg.groupId,
+        epoch: msg.epoch,
+        contentType: msg.contentType,
+        authenticatedData: msg.authenticatedData,
+    }
 
-  const decrypted = await cs.hpke.decryptAead(key, nonce, encodePrivateContentAAD(aad), msg.ciphertext)
+    const decrypted = await cs.hpke.decryptAead(key, nonce, encodePrivateContentAAD(aad), msg.ciphertext)
 
-  const pmc = decodePrivateMessageContent(msg.contentType)(decrypted, 0)?.[0]
+    const pmc = decodePrivateMessageContent(msg.contentType)(decrypted, 0)?.[0]
 
-  if (pmc === undefined) throw new CodecError("Could not decode PrivateMessageContent")
+    if (pmc === undefined) throw new CodecError('Could not decode PrivateMessageContent')
 
-  const content = toAuthenticatedContent(pmc, msg, senderData.leafIndex)
+    const content = toAuthenticatedContent(pmc, msg, senderData.leafIndex)
 
-  const signaturePublicKey =
+    const signaturePublicKey =
     overrideSignatureKey !== undefined
-      ? overrideSignatureKey
-      : getSignaturePublicKeyFromLeafIndex(ratchetTree, toLeafIndex(senderData.leafIndex))
+        ? overrideSignatureKey
+        : getSignaturePublicKeyFromLeafIndex(ratchetTree, toLeafIndex(senderData.leafIndex))
 
-  const signatureValid = await verifyFramedContentSignature(
-    signaturePublicKey,
-    "mls_private_message",
-    content.content,
-    content.auth,
-    groupContext,
-    cs.signature,
-  )
+    const signatureValid = await verifyFramedContentSignature(
+        signaturePublicKey,
+        'mls_private_message',
+        content.content,
+        content.auth,
+        groupContext,
+        cs.signature,
+    )
 
-  if (!signatureValid) throw new CryptoVerificationError("Signature invalid")
+    if (!signatureValid) throw new CryptoVerificationError('Signature invalid')
 
-  return { tree: newTree, content }
+    return { tree: newTree, content }
 }
 
-export function validateSenderData(senderData: SenderData, tree: RatchetTree): MlsError | undefined {
-  if (tree[leafToNodeIndex(toLeafIndex(senderData.leafIndex))]?.nodeType !== "leaf")
-    return new ValidationError("SenderData did not point to a non-blank leaf node")
+export function validateSenderData (senderData: SenderData, tree: RatchetTree): MlsError | undefined {
+    if (tree[leafToNodeIndex(toLeafIndex(senderData.leafIndex))]?.nodeType !== 'leaf') { return new ValidationError('SenderData did not point to a non-blank leaf node') }
 }

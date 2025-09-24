@@ -1,1 +1,1 @@
-export * from "../default/rng.js"
+export * from '../default/rng.js'

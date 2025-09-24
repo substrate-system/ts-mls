@@ -1,23 +1,24 @@
-import { CiphersuiteId, CiphersuiteImpl, getCiphersuiteFromId } from "../../src/crypto/ciphersuite"
-import { getCiphersuiteImpl } from "../../src/crypto/getCiphersuiteImpl"
-import { hexToBytes } from "@noble/ciphers/utils"
-import json from "../../test_vectors/secret-tree.json"
-import { expandSenderDataKey, expandSenderDataNonce } from "../../src/sender"
-import { createSecretTree, deriveKey, deriveNonce, ratchetUntil } from "../../src/secretTree"
-import { leafToNodeIndex, toLeafIndex } from "../../src/treemath"
-import { defaultKeyRetentionConfig } from "../../src/keyRetentionConfig"
+import type { CiphersuiteId, CiphersuiteImpl } from '../../src/crypto/ciphersuite'
+import { getCiphersuiteFromId } from '../../src/crypto/ciphersuite'
+import { getCiphersuiteImpl } from '../../src/crypto/getCiphersuiteImpl'
+import { hexToBytes } from '@noble/ciphers/utils.js'
+import json from '../../test_vectors/secret-tree.json'
+import { expandSenderDataKey, expandSenderDataNonce } from '../../src/sender'
+import { createSecretTree, deriveKey, deriveNonce, ratchetUntil } from '../../src/secretTree'
+import { leafToNodeIndex, toLeafIndex } from '../../src/treemath'
+import { defaultKeyRetentionConfig } from '../../src/keyRetentionConfig'
 
-test.concurrent.each(json.map((x, index) => [index, x]))(`secret-tree test vectors %i`, async (_index, x) => {
-  const impl = await getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
-  await testSecretTree(
-    x.sender_data.sender_data_secret,
-    x.sender_data.ciphertext,
-    x.sender_data.key,
-    x.sender_data.nonce,
-    x.encryption_secret,
-    x.leaves,
-    impl,
-  )
+test.concurrent.each(json.map((x, index) => [index, x]))('secret-tree test vectors %i', async (_index, x) => {
+    const impl = await getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
+    await testSecretTree(
+        x.sender_data.sender_data_secret,
+        x.sender_data.ciphertext,
+        x.sender_data.key,
+        x.sender_data.nonce,
+        x.encryption_secret,
+        x.leaves,
+        impl,
+    )
 })
 
 type Leaf = {
@@ -28,52 +29,52 @@ type Leaf = {
   application_nonce: string
 }
 
-async function testSecretTree(
-  senderSecret: string,
-  ciphertext: string,
-  key: string,
-  nonce: string,
-  encryptionSecret: string,
-  leaves: Leaf[][],
-  impl: CiphersuiteImpl,
+async function testSecretTree (
+    senderSecret: string,
+    ciphertext: string,
+    key: string,
+    nonce: string,
+    encryptionSecret: string,
+    leaves: Leaf[][],
+    impl: CiphersuiteImpl,
 ) {
-  // key == sender_data_key(sender_data_secret, ciphertext)
-  const derivedKey = await expandSenderDataKey(impl, hexToBytes(senderSecret), hexToBytes(ciphertext))
-  expect(derivedKey).toStrictEqual(hexToBytes(key))
+    // key == sender_data_key(sender_data_secret, ciphertext)
+    const derivedKey = await expandSenderDataKey(impl, hexToBytes(senderSecret), hexToBytes(ciphertext))
+    expect(derivedKey).toStrictEqual(hexToBytes(key))
 
-  //nonce == sender_data_nonce(sender_data_secret, ciphertext)
-  const derivedNonce = await expandSenderDataNonce(impl, hexToBytes(senderSecret), hexToBytes(ciphertext))
-  expect(derivedNonce).toStrictEqual(hexToBytes(nonce))
+    // nonce == sender_data_nonce(sender_data_secret, ciphertext)
+    const derivedNonce = await expandSenderDataNonce(impl, hexToBytes(senderSecret), hexToBytes(ciphertext))
+    expect(derivedNonce).toStrictEqual(hexToBytes(nonce))
 
-  const tree = await createSecretTree(leaves.length, hexToBytes(encryptionSecret), impl.kdf)
-  for (const [index, leaf] of leaves.entries()) {
-    const nodeIndex = leafToNodeIndex(toLeafIndex(index))
-    const handshakeSecret = tree[nodeIndex]!.handshake
-    for (const gen of leaf) {
-      const ratcheted = await ratchetUntil(handshakeSecret, gen.generation, defaultKeyRetentionConfig, impl.kdf)
-      expect(ratcheted.generation).toBe(gen.generation)
+    const tree = await createSecretTree(leaves.length, hexToBytes(encryptionSecret), impl.kdf)
+    for (const [index, leaf] of leaves.entries()) {
+        const nodeIndex = leafToNodeIndex(toLeafIndex(index))
+        const handshakeSecret = tree[nodeIndex]!.handshake
+        for (const gen of leaf) {
+            const ratcheted = await ratchetUntil(handshakeSecret, gen.generation, defaultKeyRetentionConfig, impl.kdf)
+            expect(ratcheted.generation).toBe(gen.generation)
 
-      //handshake_key = handshake_ratchet_key_[i]_[generation]
-      const handshakeKey = await deriveKey(ratcheted.secret, ratcheted.generation, impl)
-      expect(handshakeKey).toStrictEqual(hexToBytes(gen.handshake_key))
+            // handshake_key = handshake_ratchet_key_[i]_[generation]
+            const handshakeKey = await deriveKey(ratcheted.secret, ratcheted.generation, impl)
+            expect(handshakeKey).toStrictEqual(hexToBytes(gen.handshake_key))
 
-      // handshake_nonce = handshake_ratchet_nonce_[i]_[generation]
-      const handshakeNonce = await deriveNonce(ratcheted.secret, ratcheted.generation, impl)
-      expect(handshakeNonce).toStrictEqual(hexToBytes(gen.handshake_nonce))
+            // handshake_nonce = handshake_ratchet_nonce_[i]_[generation]
+            const handshakeNonce = await deriveNonce(ratcheted.secret, ratcheted.generation, impl)
+            expect(handshakeNonce).toStrictEqual(hexToBytes(gen.handshake_nonce))
+        }
+
+        const applicationSecret = tree[nodeIndex]!.application
+        for (const gen of leaf) {
+            const ratcheted = await ratchetUntil(applicationSecret, gen.generation, defaultKeyRetentionConfig, impl.kdf)
+            expect(ratcheted.generation).toBe(gen.generation)
+
+            // application_key = application_ratchet_key_[i]_[generation]
+            const applicationKey = await deriveKey(ratcheted.secret, ratcheted.generation, impl)
+            expect(applicationKey).toStrictEqual(hexToBytes(gen.application_key))
+
+            // application_nonce = application_ratchet_nonce_[i]_[generation]
+            const applicationNonce = await deriveNonce(ratcheted.secret, ratcheted.generation, impl)
+            expect(applicationNonce).toStrictEqual(hexToBytes(gen.application_nonce))
+        }
     }
-
-    const applicationSecret = tree[nodeIndex]!.application
-    for (const gen of leaf) {
-      const ratcheted = await ratchetUntil(applicationSecret, gen.generation, defaultKeyRetentionConfig, impl.kdf)
-      expect(ratcheted.generation).toBe(gen.generation)
-
-      // application_key = application_ratchet_key_[i]_[generation]
-      const applicationKey = await deriveKey(ratcheted.secret, ratcheted.generation, impl)
-      expect(applicationKey).toStrictEqual(hexToBytes(gen.application_key))
-
-      // application_nonce = application_ratchet_nonce_[i]_[generation]
-      const applicationNonce = await deriveNonce(ratcheted.secret, ratcheted.generation, impl)
-      expect(applicationNonce).toStrictEqual(hexToBytes(gen.application_nonce))
-    }
-  }
 }

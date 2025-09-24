@@ -5,7 +5,7 @@ export interface KeyRetentionConfig {
 }
 
 export const defaultKeyRetentionConfig: KeyRetentionConfig = {
-  retainKeysForGenerations: 10,
-  retainKeysForEpochs: 4,
-  maximumForwardRatchetSteps: 200,
+    retainKeysForGenerations: 10,
+    retainKeysForEpochs: 4,
+    maximumForwardRatchetSteps: 200,
 }

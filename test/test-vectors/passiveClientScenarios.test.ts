@@ -1,119 +1,118 @@
-import { CiphersuiteId, CiphersuiteImpl, getCiphersuiteFromId } from "../../src/crypto/ciphersuite"
-import { getCiphersuiteImpl } from "../../src/crypto/getCiphersuiteImpl"
-import { KeyPackage, PrivateKeyPackage } from "../../src/keyPackage"
-import { hexToBytes } from "@noble/ciphers/utils"
-import jsonCommit from "../../test_vectors/passive-client-handling-commit.json"
-import jsonRandom from "../../test_vectors/passive-client-random.json"
-import jsonWelcome from "../../test_vectors/passive-client-welcome.json"
-import { hpkeKeysMatch, signatureKeysMatch } from "../crypto/keyMatch"
-import { decodeMlsMessage } from "../../src/message"
-import { decodeRatchetTree } from "../../src/ratchetTree"
+import type { CiphersuiteId, CiphersuiteImpl } from '../../src/crypto/ciphersuite'
+import { getCiphersuiteFromId } from '../../src/crypto/ciphersuite'
+import { getCiphersuiteImpl } from '../../src/crypto/getCiphersuiteImpl'
+import type { KeyPackage, PrivateKeyPackage } from '../../src/keyPackage'
+import { hexToBytes } from '@noble/ciphers/utils.js'
+import jsonCommit from '../../test_vectors/passive-client-handling-commit.json'
+import jsonRandom from '../../test_vectors/passive-client-random.json'
+import jsonWelcome from '../../test_vectors/passive-client-welcome.json'
+import { hpkeKeysMatch, signatureKeysMatch } from '../crypto/keyMatch'
+import { decodeMlsMessage } from '../../src/message'
+import { decodeRatchetTree } from '../../src/ratchetTree'
 
-import { joinGroup, makePskIndex } from "../../src/clientState"
-import { processPrivateMessage, processPublicMessage } from "../../src/processMessages"
-import { bytesToBase64 } from "../../src/util/byteArray"
+import { joinGroup, makePskIndex } from '../../src/clientState'
+import { processPrivateMessage, processPublicMessage } from '../../src/processMessages'
+import { bytesToBase64 } from '../../src/util/byteArray'
 
 test.concurrent.each(jsonCommit.map((x, index) => [index, x]))(
-  `passive-client-handling-commit test vectors %i`,
-  async (_index, x) => {
-    const impl = await getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
-    await testPassiveClientScenario(x, impl)
-  },
+    'passive-client-handling-commit test vectors %i',
+    async (_index, x) => {
+        const impl = await getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
+        await testPassiveClientScenario(x, impl)
+    },
 )
 
 test.concurrent.each(jsonRandom.map((x, index) => [index, x]))(
-  `passive-client-random test vectors %i`,
-  async (_index, x) => {
-    const impl = await getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
-    await testPassiveClientScenario(x, impl)
-  },
-  60000,
+    'passive-client-random test vectors %i',
+    async (_index, x) => {
+        const impl = await getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
+        await testPassiveClientScenario(x, impl)
+    },
+    60000,
 )
 
 test.concurrent.each(jsonWelcome.map((x, index) => [index, x]))(
-  `passive-client-welcome test vectors %i`,
-  async (_index, x) => {
-    const impl = await getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
-    await testPassiveClientScenario(x, impl)
-  },
+    'passive-client-welcome test vectors %i',
+    async (_index, x) => {
+        const impl = await getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
+        await testPassiveClientScenario(x, impl)
+    },
 )
 
-async function testPassiveClientScenario(data: MlsGroupState, impl: CiphersuiteImpl) {
-  const kp = decodeMlsMessage(hexToBytes(data.key_package), 0)
+async function testPassiveClientScenario (data: MlsGroupState, impl: CiphersuiteImpl) {
+    const kp = decodeMlsMessage(hexToBytes(data.key_package), 0)
 
-  if (kp === undefined || kp[0].wireformat !== "mls_key_package") throw new Error("Could not decode KeyPackage")
-  await verifyKeys(data, kp[0].keyPackage, impl)
+    if (kp === undefined || kp[0].wireformat !== 'mls_key_package') throw new Error('Could not decode KeyPackage')
+    await verifyKeys(data, kp[0].keyPackage, impl)
 
-  const welcome = decodeMlsMessage(hexToBytes(data.welcome), 0)
+    const welcome = decodeMlsMessage(hexToBytes(data.welcome), 0)
 
-  if (welcome === undefined || welcome[0].wireformat !== "mls_welcome") throw new Error("Could not decode Welcome")
+    if (welcome === undefined || welcome[0].wireformat !== 'mls_welcome') throw new Error('Could not decode Welcome')
 
-  const pks: PrivateKeyPackage = {
-    hpkePrivateKey: hexToBytes(data.encryption_priv),
-    initPrivateKey: hexToBytes(data.init_priv),
-    signaturePrivateKey: hexToBytes(data.signature_priv),
-  }
-
-  const tree = data.ratchet_tree !== null ? decodeRatchetTree(hexToBytes(data.ratchet_tree), 0)?.[0] : undefined
-
-  const psks: Record<string, Uint8Array> = data.external_psks.reduce(
-    (acc, psk) => ({ ...acc, [bytesToBase64(hexToBytes(psk.psk_id))]: hexToBytes(psk.psk) }),
-    {},
-  )
-  let state = await joinGroup(welcome[0].welcome, kp[0].keyPackage, pks, makePskIndex(undefined, psks), impl, tree)
-
-  expect(state.keySchedule.epochAuthenticator).toStrictEqual(hexToBytes(data.initial_epoch_authenticator))
-
-  for (const epoch of data.epochs) {
-    for (const proposal of epoch.proposals) {
-      const mlsProposal = decodeMlsMessage(hexToBytes(proposal), 0)
-      if (
-        mlsProposal === undefined ||
-        (mlsProposal[0].wireformat !== "mls_private_message" && mlsProposal[0].wireformat !== "mls_public_message")
-      )
-        throw new Error("Could not decode proposal message")
-
-      if (mlsProposal[0].wireformat === "mls_private_message") {
-        const res = await processPrivateMessage(state, mlsProposal[0].privateMessage, makePskIndex(state, psks), impl)
-
-        state = res.newState
-      } else {
-        const res = await processPublicMessage(state, mlsProposal[0].publicMessage, makePskIndex(state, psks), impl)
-
-        state = res.newState
-      }
+    const pks: PrivateKeyPackage = {
+        hpkePrivateKey: hexToBytes(data.encryption_priv),
+        initPrivateKey: hexToBytes(data.init_priv),
+        signaturePrivateKey: hexToBytes(data.signature_priv),
     }
 
-    const mlsCommit = decodeMlsMessage(hexToBytes(epoch.commit), 0)
-    if (
-      mlsCommit === undefined ||
-      (mlsCommit[0].wireformat !== "mls_private_message" && mlsCommit[0].wireformat !== "mls_public_message")
+    const tree = data.ratchet_tree !== null ? decodeRatchetTree(hexToBytes(data.ratchet_tree), 0)?.[0] : undefined
+
+    const psks: Record<string, Uint8Array> = data.external_psks.reduce(
+        (acc, psk) => ({ ...acc, [bytesToBase64(hexToBytes(psk.psk_id))]: hexToBytes(psk.psk) }),
+        {},
     )
-      throw new Error("Could not decode commit message")
+    let state = await joinGroup(welcome[0].welcome, kp[0].keyPackage, pks, makePskIndex(undefined, psks), impl, tree)
 
-    if (mlsCommit[0].wireformat === "mls_private_message") {
-      const res = await processPrivateMessage(state, mlsCommit[0].privateMessage, makePskIndex(state, psks), impl)
+    expect(state.keySchedule.epochAuthenticator).toStrictEqual(hexToBytes(data.initial_epoch_authenticator))
 
-      state = res.newState
-    } else {
-      const res = await processPublicMessage(state, mlsCommit[0].publicMessage, makePskIndex(state, psks), impl)
-      state = res.newState
+    for (const epoch of data.epochs) {
+        for (const proposal of epoch.proposals) {
+            const mlsProposal = decodeMlsMessage(hexToBytes(proposal), 0)
+            if (
+                mlsProposal === undefined ||
+        (mlsProposal[0].wireformat !== 'mls_private_message' && mlsProposal[0].wireformat !== 'mls_public_message')
+            ) { throw new Error('Could not decode proposal message') }
+
+            if (mlsProposal[0].wireformat === 'mls_private_message') {
+                const res = await processPrivateMessage(state, mlsProposal[0].privateMessage, makePskIndex(state, psks), impl)
+
+                state = res.newState
+            } else {
+                const res = await processPublicMessage(state, mlsProposal[0].publicMessage, makePskIndex(state, psks), impl)
+
+                state = res.newState
+            }
+        }
+
+        const mlsCommit = decodeMlsMessage(hexToBytes(epoch.commit), 0)
+        if (
+            mlsCommit === undefined ||
+      (mlsCommit[0].wireformat !== 'mls_private_message' && mlsCommit[0].wireformat !== 'mls_public_message')
+        ) { throw new Error('Could not decode commit message') }
+
+        if (mlsCommit[0].wireformat === 'mls_private_message') {
+            const res = await processPrivateMessage(state, mlsCommit[0].privateMessage, makePskIndex(state, psks), impl)
+
+            state = res.newState
+        } else {
+            const res = await processPublicMessage(state, mlsCommit[0].publicMessage, makePskIndex(state, psks), impl)
+            state = res.newState
+        }
+
+        expect(state.keySchedule.epochAuthenticator).toStrictEqual(hexToBytes(epoch.epoch_authenticator))
     }
-
-    expect(state.keySchedule.epochAuthenticator).toStrictEqual(hexToBytes(epoch.epoch_authenticator))
-  }
 }
 
-async function verifyKeys(data: MlsGroupState, kp: KeyPackage, impl: CiphersuiteImpl) {
-  const hpke = await hpkeKeysMatch(kp.leafNode.hpkePublicKey, hexToBytes(data.encryption_priv), impl.hpke)
-  expect(hpke).toBe(true)
+async function verifyKeys (data: MlsGroupState, kp: KeyPackage, impl: CiphersuiteImpl) {
+    const hpke = await hpkeKeysMatch(kp.leafNode.hpkePublicKey, hexToBytes(data.encryption_priv), impl.hpke)
+    expect(hpke).toBe(true)
 
-  const hpkeInit = await hpkeKeysMatch(kp.initKey, hexToBytes(data.init_priv), impl.hpke)
-  expect(hpkeInit).toBe(true)
+    const hpkeInit = await hpkeKeysMatch(kp.initKey, hexToBytes(data.init_priv), impl.hpke)
+    expect(hpkeInit).toBe(true)
 
-  const sig = await signatureKeysMatch(kp.leafNode.signaturePublicKey, hexToBytes(data.signature_priv), impl.signature)
-  expect(sig).toBe(true)
-  hexToBytes(data.init_priv)
+    const sig = await signatureKeysMatch(kp.leafNode.signaturePublicKey, hexToBytes(data.signature_priv), impl.signature)
+    expect(sig).toBe(true)
+    hexToBytes(data.init_priv)
 }
 
 type MlsGroupState = {

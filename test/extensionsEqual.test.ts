@@ -1,59 +1,60 @@
-import { Extension, extensionsEqual } from "../src/extension"
+import type { Extension } from '../src/extension'
+import { extensionsEqual } from '../src/extension'
 
-describe("extensionsEqual", () => {
-  test("should return true for identical extensions", () => {
-    const ext1: Extension = {
-      extensionType: "application_id",
-      extensionData: new Uint8Array([1, 2, 3]),
-    }
-    const ext2: Extension = {
-      extensionType: "application_id",
-      extensionData: new Uint8Array([1, 2, 3]),
-    }
+describe('extensionsEqual', () => {
+    test('should return true for identical extensions', () => {
+        const ext1: Extension = {
+            extensionType: 'application_id',
+            extensionData: new Uint8Array([1, 2, 3]),
+        }
+        const ext2: Extension = {
+            extensionType: 'application_id',
+            extensionData: new Uint8Array([1, 2, 3]),
+        }
 
-    expect(extensionsEqual([ext1], [ext2])).toBe(true)
-  })
+        expect(extensionsEqual([ext1], [ext2])).toBe(true)
+    })
 
-  test("should return false for different extension types", () => {
-    const ext1: Extension = {
-      extensionType: "application_id",
-      extensionData: new Uint8Array([1, 2, 3]),
-    }
-    const ext2: Extension = {
-      extensionType: "ratchet_tree",
-      extensionData: new Uint8Array([1, 2, 3]),
-    }
+    test('should return false for different extension types', () => {
+        const ext1: Extension = {
+            extensionType: 'application_id',
+            extensionData: new Uint8Array([1, 2, 3]),
+        }
+        const ext2: Extension = {
+            extensionType: 'ratchet_tree',
+            extensionData: new Uint8Array([1, 2, 3]),
+        }
 
-    expect(extensionsEqual([ext1], [ext2])).toBe(false)
-  })
+        expect(extensionsEqual([ext1], [ext2])).toBe(false)
+    })
 
-  test("should return false for different extension data", () => {
-    const ext1: Extension = {
-      extensionType: "application_id",
-      extensionData: new Uint8Array([1, 2, 3]),
-    }
-    const ext2: Extension = {
-      extensionType: "application_id",
-      extensionData: new Uint8Array([1, 2, 4]),
-    }
+    test('should return false for different extension data', () => {
+        const ext1: Extension = {
+            extensionType: 'application_id',
+            extensionData: new Uint8Array([1, 2, 3]),
+        }
+        const ext2: Extension = {
+            extensionType: 'application_id',
+            extensionData: new Uint8Array([1, 2, 4]),
+        }
 
-    expect(extensionsEqual([ext1], [ext2])).toBe(false)
-  })
+        expect(extensionsEqual([ext1], [ext2])).toBe(false)
+    })
 
-  test("should return false for different array lengths", () => {
-    const ext1: Extension = {
-      extensionType: "application_id",
-      extensionData: new Uint8Array([1, 2, 3]),
-    }
-    const ext2: Extension = {
-      extensionType: "application_id",
-      extensionData: new Uint8Array([1, 2, 3]),
-    }
+    test('should return false for different array lengths', () => {
+        const ext1: Extension = {
+            extensionType: 'application_id',
+            extensionData: new Uint8Array([1, 2, 3]),
+        }
+        const ext2: Extension = {
+            extensionType: 'application_id',
+            extensionData: new Uint8Array([1, 2, 3]),
+        }
 
-    expect(extensionsEqual([ext1], [ext1, ext2])).toBe(false)
-  })
+        expect(extensionsEqual([ext1], [ext1, ext2])).toBe(false)
+    })
 
-  test("should return true for empty arrays", () => {
-    expect(extensionsEqual([], [])).toBe(true)
-  })
+    test('should return true for empty arrays', () => {
+        expect(extensionsEqual([], [])).toBe(true)
+    })
 })
