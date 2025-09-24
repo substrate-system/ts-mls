@@ -1,8 +1,13 @@
 export { type Extension, type ExtensionType } from "./extension.js"
 
-export { defaultProposalTypes, type DefaultProposalTypeName } from "./defaultProposalType.js"
-
-export { defaultExtensionTypes, type DefaultExtensionTypeName } from "./defaultExtensionType.js"
+export {
+  defaultProposalTypes,
+  type DefaultProposalTypeName
+} from "./defaultProposalType.js"
+export {
+  defaultExtensionTypes,
+  type DefaultExtensionTypeName
+} from "./defaultExtensionType.js"
 
 export { type PrivateKeyPath } from "./privateKeyPath.js"
 

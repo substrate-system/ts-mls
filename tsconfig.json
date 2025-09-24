@@ -1,26 +1,31 @@
 {
   "compilerOptions": {
+    "listFiles": true,
+    "module": "ES2022",
     "target": "ES2022",
-    "useDefineForClassFields": true,
-    "module": "ESNext",
     "moduleResolution": "Bundler",
-    "noEmit": false,
+    "esModuleInterop": false,
+    "lib": ["ES2022", "DOM", "WebWorker"],
+    "types": ["vite/client"],
+    "allowJs": false,
+    "skipLibCheck": true,
     "outDir": "dist",
-    "declaration": true,
-    "incremental": true,
-    "sourceMap": true,
-    "resolveJsonModule": true,
-    "types": ["vitest/globals"],
-
-    /* Linting */
+    "allowSyntheticDefaultImports": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "strict": true,
-    "noUnusedLocals": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "noUnusedParameters": true,
-    "noUncheckedIndexedAccess": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "sourceMap": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noImplicitAny": false,
+    "declaration": true,
+    "declarationDir": "dist",
+    "declarationMap": true
   },
-  "include": ["src", "test", "bench"]
+  "include": [
+    "example",
+    "src/**/*",
+    "test"
+  ]
 }
